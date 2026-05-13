@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* PWA / mobile: reduce rubber-band overscroll; respect safe areas on notched devices */
+@layer base {
+    html {
+        -webkit-tap-highlight-color: transparent;
+    }
+    body {
+        overscroll-behavior-y: contain;
+        padding-left: env(safe-area-inset-left, 0);
+        padding-right: env(safe-area-inset-right, 0);
+    }
+}
+
+/* Space for fixed mobile bottom nav (see MobileBottomNav.jsx) */
+@media (max-width: 1023px) {
+    body.has-mobile-bottom-nav {
+        padding-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+@layer components {
+    /* Strips @tailwindcss/forms default border, ring, padding & shadow
+       so an <input> can sit cleanly inside a styled wrapper. */
+    .bare-input {
+        @apply flex-1 bg-transparent border-0 p-0 text-sm text-white outline-none shadow-none;
+    }
+    .bare-input::placeholder {
+        @apply text-neutral-600;
+    }
+    .bare-input:focus {
+        @apply ring-0 border-0 outline-none shadow-none;
+    }
+    .bare-input:-webkit-autofill,
+    .bare-input:-webkit-autofill:hover,
+    .bare-input:-webkit-autofill:focus {
+        -webkit-text-fill-color: #fff;
+        -webkit-box-shadow: 0 0 0 1000px transparent inset;
+        transition: background-color 9999s ease-in-out 0s;
+    }
+}
+
+/* Keep native date-picker icons visible on dark UI. */
+input[type='date']::-webkit-calendar-picker-indicator {
+    -webkit-appearance: none;
+    appearance: none;
+    filter: invert(1) grayscale(1) brightness(1.8) !important;
+    opacity: 0.95;
+    cursor: pointer;
+}
+
+input[type='date']::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}
+
+input[type='date']::-webkit-calendar-picker-indicator:active {
+    opacity: 1;
+}
+
+/* Safari/Chromium dark-theme text legibility for date controls. */
+input[type='date'] {
+    color-scheme: dark;
+}
+
+/* Force all calendar-related lucide icons to be visible on dark theme. */
+.lucide-calendar,
+.lucide-calendar-days,
+.lucide-calendar-clock,
+.lucide-calendar-off,
+.lucide-calendar-plus {
+    color: #d1d5db !important;   /* gray-300 */
+    stroke: #d1d5db !important;
+}

@@ -1,0 +1,13 @@
+# Adjust paths if your deploy directory differs (EC2 guide uses /var/www/29-management).
+[program:laravel-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/29-management/artisan queue:work database --sleep=3 --tries=3 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/var/www/29-management/storage/logs/worker.log
+stopwaitsecs=3600
