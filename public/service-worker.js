@@ -21,11 +21,11 @@ self.addEventListener('push', (event) => {
     const title = data.title || '29 Management';
     const options = {
         body: data.body || '',
-        icon: data.icon || '/pwa-icon-192.png',
-        badge: data.badge || '/pwa-icon-192.png',
+        icon: data.icon || '/logo.png',
+        badge: data.badge || '/logo.png',
         tag: data.tag || undefined,
         data: { url: data.url || '/' },
-        requireInteraction: false,
+        requireInteraction: true,
     };
 
     // Delay slightly; skip the OS banner if the user already has this app focused in a tab

@@ -2,16 +2,15 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
-        <meta name="mobile-web-app-capable" content="yes">
-        <meta name="format-detection" content="telephone=no">
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
         <link rel="icon" type="image/png" href="/logo.png">
-        <link rel="manifest" href="/manifest.webmanifest">
-        <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
-        <meta name="theme-color" content="#171717" media="(prefers-color-scheme: light)">
+
+        <!-- PWA -->
+        <link rel="manifest" href="/manifest.json">
+        <meta name="theme-color" content="#171717">
         <meta name="application-name" content="29 Management">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-title" content="29 Management">
