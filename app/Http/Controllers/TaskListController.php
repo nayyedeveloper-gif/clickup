@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Folder;
 use App\Models\Space;
 use App\Models\TaskList;
-use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -15,9 +15,7 @@ class TaskListController extends Controller
     public function show(TaskList $list): Response
     {
         $user = auth()->user();
-        $isPrivilegedUser = in_array($user->role, ['admin', 'owner', 'manager'], true)
-            || ($user->roleModel && in_array($user->roleModel->slug, ['admin', 'owner', 'manager'], true))
-            || (int) $user->role_id === 1;
+        $isPrivilegedUser = $user->canViewAllTasksInSharedLists();
 
         $list->load([
             'space',
@@ -114,7 +112,7 @@ class TaskListController extends Controller
             ->max('position') + 1;
 
         $copy = $list->replicate(['position', 'is_favorite', 'archived_at']);
-        $copy->name = $list->name . ' (copy)';
+        $copy->name = $list->name.' (copy)';
         $copy->position = $position;
         $copy->is_favorite = false;
         $copy->archived_at = null;

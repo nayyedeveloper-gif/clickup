@@ -81,6 +81,6 @@ class SpacePolicy
 
     private function isSystemAdmin(User $user): bool
     {
-        return (int) $user->role_id === 1;
+        return $user->hasPlatformAdminAccess();
     }
 }

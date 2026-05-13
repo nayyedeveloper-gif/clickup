@@ -20,7 +20,7 @@ class InviteController extends Controller
     public function index(Request $request): Response
     {
         // Permission check
-        if (! $request->user()->hasPermission('invite.users') && $request->user()->role_id !== 1) {
+        if (! $request->user()->hasPermission('invite.users') && ! $request->user()->hasPlatformAdminAccess()) {
             return redirect()->back()->with('error', 'You do not have permission to access this resource.');
         }
 
@@ -36,7 +36,7 @@ class InviteController extends Controller
 
         // Admin users can see all spaces, others only see spaces where they are owner or manager
         $spacesQuery = Space::where('is_personal', false);
-        if ($request->user()->role_id !== 1) {
+        if (! $request->user()->hasPlatformAdminAccess()) {
             $spacesQuery->whereHas('users', function ($query) use ($request) {
                 $query->where('users.id', $request->user()->id)
                     ->whereIn('space_user.role', ['owner', 'manager']);
@@ -66,7 +66,7 @@ class InviteController extends Controller
                 ->where('users.id', $request->user()->id)
                 ->whereIn('space_user.role', ['owner', 'manager'])
                 ->exists();
-            $isAdmin = $request->user()->role_id === 1;
+            $isAdmin = $request->user()->hasPlatformAdminAccess();
 
             if (! $canInviteToSpace && ! $isAdmin) {
                 return back()->with('error', 'You must be an owner or manager of this space to invite people.');

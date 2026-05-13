@@ -7,6 +7,7 @@ use App\Models\Channel;
 use App\Models\Message;
 use App\Models\User;
 use App\Notifications\NewMessageNotification;
+use App\Support\SafeBroadcast;
 use Illuminate\Support\Facades\Log;
 
 class ChatInboxNotifier
@@ -28,7 +29,7 @@ class ChatInboxNotifier
         $url = self::inboxUrl($message);
         $context = $message->is_direct_message ? 'dm' : 'channel';
 
-        broadcast(new MessageInboxNudge($recipientIds, [
+        SafeBroadcast::run(fn () => broadcast(new MessageInboxNudge($recipientIds, [
             'message_id' => $message->id,
             'sender_id' => $message->sender_id,
             'sender_name' => $senderName,
@@ -36,7 +37,7 @@ class ChatInboxNotifier
             'context' => $context,
             'channel_id' => $message->channel_id,
             'url' => $url,
-        ]));
+        ])));
 
         $push = app(WebPushService::class);
         $channelName = $message->channel?->name;

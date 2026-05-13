@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, MessageSquare, Plus, Search, Image as ImageIcon, Hash } from 'lucide-react';
 import MediaGalleryDrawer from '@/Components/Chat/MediaGalleryDrawer';
 import MobileBottomNav from '@/Components/Mobile/MobileBottomNav';
@@ -10,6 +10,7 @@ import Composer from '@/Components/Chat/Composer';
 import MessageGroup from '@/Components/Chat/MessageGroup';
 import DaySeparator from '@/Components/Chat/DaySeparator';
 import { appendMessageIfNew, buildMessageGroups, messageIdEquals, relativeTime } from '@/Components/Chat/helpers';
+import { useChatFileDropZone } from '@/Components/Chat/useChatFileDropZone';
 import { usePresence } from '@/Contexts/PresenceContext';
 
 export default function MessagesIndex({ conversations, partner: initialPartner, thread: initialThread, activeUserId }) {
@@ -25,9 +26,17 @@ export default function MessagesIndex({ conversations, partner: initialPartner, 
     const [replyTo, setReplyTo] = useState(null);
     const [partnerTyping, setPartnerTyping] = useState(false);
     const scrollerRef = useRef(null);
+    const composerRef = useRef(null);
     const echoChannelRef = useRef(null);
     const typingTimerRef = useRef(null);
     const { isOnline } = usePresence();
+
+    const forwardFilesToComposer = useCallback((files) => {
+        composerRef.current?.addFiles(files);
+    }, []);
+
+    const { active: fileDragActive, onDragEnter, onDragLeave, onDragOverCapture, onDropCapture } =
+        useChatFileDropZone(forwardFilesToComposer);
 
     // Sync when navigating between threads
     useEffect(() => {
@@ -234,7 +243,22 @@ export default function MessagesIndex({ conversations, partner: initialPartner, 
                         {!partner ? (
                             <EmptyState onNew={() => setShowNewDm(true)} />
                         ) : (
-                            <>
+                            <div
+                                className={`flex flex-1 flex-col min-h-0 relative ${
+                                    fileDragActive ? 'ring-2 ring-inset ring-purple-500/50 rounded-lg' : ''
+                                }`}
+                                onDragEnter={onDragEnter}
+                                onDragLeave={onDragLeave}
+                                onDragOverCapture={onDragOverCapture}
+                                onDropCapture={onDropCapture}
+                            >
+                                {fileDragActive && (
+                                    <div className="pointer-events-none absolute inset-x-0 bottom-24 z-10 flex justify-center px-4">
+                                        <div className="rounded-lg border border-purple-500/60 bg-neutral-900/95 px-4 py-2 text-sm text-white shadow-lg">
+                                            Release to attach files
+                                        </div>
+                                    </div>
+                                )}
                                 {/* Header */}
                                 <header className="h-14 px-3 md:px-5 flex items-center gap-2.5 md:gap-3 border-b border-neutral-800 shrink-0">
                                     <button
@@ -313,6 +337,7 @@ export default function MessagesIndex({ conversations, partner: initialPartner, 
 
                                 {/* Composer */}
                                 <Composer
+                                    ref={composerRef}
                                     receiverId={partner.id}
                                     replyTo={replyTo}
                                     onCancelReply={() => setReplyTo(null)}
@@ -320,7 +345,7 @@ export default function MessagesIndex({ conversations, partner: initialPartner, 
                                     onType={handleTyping}
                                     placeholder={`Message ${partner.name}`}
                                 />
-                            </>
+                            </div>
                         )}
                     </section>
                 </div>

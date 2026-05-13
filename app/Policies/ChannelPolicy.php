@@ -86,7 +86,7 @@ class ChannelPolicy
             return true;
         }
 
-        return $this->isSystemAdmin($user);
+        return $user->hasPlatformAdminAccess();
     }
 
     /**
@@ -98,7 +98,17 @@ class ChannelPolicy
             return false;
         }
 
-        return $this->userCanParticipateInChannel($user, $channel);
+        if ($this->userCanParticipateInChannel($user, $channel)) {
+            return true;
+        }
+
+        // Same cohort as view(): audit/moderation roles may read public in-space channels
+        // without space membership; allow replies there too (still requires chat.send).
+        if ($channel->space_id && ! $channel->is_private && $this->canViewPublicChannelWithoutSpaceMembership($user)) {
+            return $this->userCanViewChannel($user, $channel);
+        }
+
+        return false;
     }
 
     /**
@@ -127,7 +137,8 @@ class ChannelPolicy
     }
 
     /**
-     * Post messages: must be a normal participant (space member for public-in-space), no admin bypass.
+     * Post messages: normal participants (space member for public-in-space, or private members).
+     * Moderator bypass for posting is applied in sendMessage(), not here.
      */
     private function userCanParticipateInChannel(User $user, Channel $channel): bool
     {
@@ -149,15 +160,14 @@ class ChannelPolicy
      */
     private function canViewPublicChannelWithoutSpaceMembership(User $user): bool
     {
-        return $this->isSystemAdmin($user)
+        return $user->hasPlatformAdminAccess()
             || $user->hasPermission('chat.manage')
-            || $user->hasPermission('users.manage')
-            || $user->hasRole('admin');
+            || $user->hasPermission('users.manage');
     }
 
     private function canManageChannelSettings(User $user, Channel $channel): bool
     {
-        return $this->isSystemAdmin($user)
+        return $user->hasPlatformAdminAccess()
             || $channel->created_by === $user->id
             || $this->isChannelAdmin($user, $channel);
     }
@@ -172,6 +182,6 @@ class ChannelPolicy
 
     private function isSystemAdmin(User $user): bool
     {
-        return (int) $user->role_id === 1;
+        return $user->hasPlatformAdminAccess();
     }
 }

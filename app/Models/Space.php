@@ -70,7 +70,7 @@ class Space extends Model
     {
         $query = static::query()->whereNull('parent_id');
 
-        $fullAccess = (int) $user->role_id === 1 || $user->hasPermission('spaces.manage');
+        $fullAccess = $user->hasPlatformAdminAccess() || $user->hasPermission('spaces.manage');
 
         if (! $fullAccess) {
             $query->where(function ($q) use ($user) {

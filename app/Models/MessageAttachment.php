@@ -34,6 +34,21 @@ class MessageAttachment extends Model
 
     public function getIsImageAttribute(): bool
     {
-        return str_starts_with((string) $this->mime_type, 'image/');
+        $mime = strtolower((string) $this->mime_type);
+
+        if (str_contains($mime, 'heic') || str_contains($mime, 'heif')) {
+            return false;
+        }
+
+        if ($mime !== '' && str_starts_with($mime, 'image/')) {
+            return true;
+        }
+
+        $ext = strtolower((string) pathinfo((string) $this->original_name, PATHINFO_EXTENSION));
+        if ($ext === '' && $this->path) {
+            $ext = strtolower((string) pathinfo((string) basename($this->path), PATHINFO_EXTENSION));
+        }
+
+        return in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp'], true);
     }
 }

@@ -15,11 +15,21 @@ class CheckPermission
      */
     public function handle(Request $request, Closure $next, string $permission): Response
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
+
             return redirect()->route('login');
         }
 
-        if (!auth()->user()->hasPermission($permission)) {
+        if (! auth()->user()->hasPermission($permission)) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'You do not have permission to access this resource.',
+                ], 403);
+            }
+
             return redirect()->back()->with('error', 'You do not have permission to access this resource.');
         }
 

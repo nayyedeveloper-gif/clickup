@@ -196,27 +196,75 @@ function attachmentDownloadUrl(url) {
     return url.includes('?') ? `${url}&download=1` : `${url}?download=1`;
 }
 
+function extensionFromAttachmentName(a) {
+    const name = a.original_name || '';
+    let ext = name.includes('.') ? name.split('.').pop()?.toLowerCase() ?? '' : '';
+    if (ext && ext.length <= 8) return ext;
+    const path = a.path || '';
+    const base = path.split('/').pop() || '';
+    if (base.includes('.')) {
+        ext = base.split('.').pop()?.toLowerCase() ?? '';
+    }
+    return ext;
+}
+
+function isHeicLikeAttachment(a) {
+    const m = (a.mime_type || '').toLowerCase();
+    const ext = extensionFromAttachmentName(a);
+    return m.includes('heic') || m.includes('heif') || ext === 'heic' || ext === 'heif';
+}
+
+function canTryBrowserImagePreview(a) {
+    if (isHeicLikeAttachment(a)) return false;
+    if (a.is_image) return true;
+    const m = (a.mime_type || '').toLowerCase();
+    if (m.startsWith('image/')) return true;
+    const ext = extensionFromAttachmentName(a);
+    return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp'].includes(ext);
+}
+
 function AttachmentView({ a }) {
+    const [imgFailed, setImgFailed] = useState(false);
     const downloadHref = attachmentDownloadUrl(a.url);
-    if (a.is_image) {
+    const tryImage = canTryBrowserImagePreview(a) && !imgFailed;
+
+    if (tryImage) {
         return (
-            <div className="relative inline-block max-w-sm">
-                <a href={a.url} target="_blank" rel="noopener noreferrer" className="block group/img">
-                    <img
-                        src={a.url}
-                        alt={a.original_name}
-                        className="max-w-sm max-h-80 rounded-lg border border-neutral-800 group-hover/img:border-neutral-700 transition"
-                    />
-                </a>
+            <div className="max-w-full rounded-lg border border-neutral-800 bg-neutral-950/40 overflow-hidden">
                 <a
-                    href={downloadHref}
+                    href={a.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title="Download"
-                    className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-neutral-900/90 border border-neutral-700 text-neutral-300 hover:text-white hover:bg-neutral-800 transition"
+                    className="block group/img"
+                    title="Open original"
                 >
-                    <Download size={14} />
+                    <img
+                        src={a.url}
+                        alt={a.original_name || 'Image'}
+                        className="block w-auto max-w-full max-h-[min(92vh,2600px)] h-auto object-contain bg-neutral-950"
+                        loading="lazy"
+                        decoding="async"
+                        onError={() => setImgFailed(true)}
+                    />
                 </a>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-neutral-800 px-3 py-2 text-xs text-neutral-300">
+                    <span className="min-w-0 flex-1 truncate font-medium text-neutral-100" title={a.original_name}>
+                        {a.original_name || 'Image'}
+                    </span>
+                    {a.size_bytes ? (
+                        <span className="shrink-0 text-[11px] text-neutral-500 tabular-nums">{formatBytes(a.size_bytes)}</span>
+                    ) : null}
+                    <a
+                        href={downloadHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Download"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-neutral-700 px-2 py-1 text-[11px] text-neutral-200 hover:border-neutral-500 hover:text-white"
+                    >
+                        <Download size={12} />
+                        Download
+                    </a>
+                </div>
             </div>
         );
     }

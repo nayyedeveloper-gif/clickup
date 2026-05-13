@@ -18,7 +18,7 @@ class TeamController extends Controller
             ->withCount('members');
 
         // If not admin, restrict to teams the user is a member of
-        if (auth()->user()->role_id !== 1) {
+        if (! auth()->user()->hasPlatformAdminAccess()) {
             $query->whereHas('members', function ($q) {
                 $q->where('user_id', auth()->id());
             });
@@ -27,8 +27,8 @@ class TeamController extends Controller
         $teams = $query->orderBy('name')->get();
 
         $usersQuery = User::select('id', 'name', 'email', 'role', 'title');
-        
-        // If not admin, only show users in the same teams? 
+
+        // If not admin, only show users in the same teams?
         // For now, let's just restrict the teams themselves.
         $users = $usersQuery->orderBy('name')
             ->get()
@@ -47,6 +47,7 @@ class TeamController extends Controller
 
                 $user->setAttribute('open_tasks', $tasks->where('status_type', '!=', 'closed')->count());
                 $user->setAttribute('done_tasks', $tasks->where('status_type', 'closed')->count());
+
                 return $user;
             });
 

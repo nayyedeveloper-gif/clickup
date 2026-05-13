@@ -39,6 +39,7 @@ class HandleInertiaRequests extends Middleware
         $isSpaceManager = false;
 
         if ($user) {
+            $user->loadMissing('roleModel.permissions');
             $isSpaceManager = Space::whereHas('users', function ($query) use ($user) {
                 $query->where('users.id', $user->id)
                     ->whereIn('space_user.role', ['owner', 'manager']);
@@ -50,7 +51,10 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user ? array_merge($user->toArray(), [
                     'role_id' => $user->role_id,
+                    'role_slug' => $user->roleModel?->slug,
                     'permissions' => $user->roleModel ? $user->roleModel->permissions->pluck('slug')->toArray() : [],
+                    'is_super_admin' => $user->isSuperAdmin(),
+                    'is_platform_admin' => $user->hasPlatformAdminAccess(),
                     'is_space_manager' => $isSpaceManager,
                 ]) : null,
             ],

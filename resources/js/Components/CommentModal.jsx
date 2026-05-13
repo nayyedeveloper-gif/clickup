@@ -1,11 +1,16 @@
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
 import { X, MessageCircle, Send, Paperclip, Smile, AtSign, ThumbsUp, User as UserIcon } from 'lucide-react';
 
 export default function CommentModal({ task, onClose, onChanged, position }) {
+    const { auth } = usePage().props;
+    const currentUserId = auth?.user?.id;
     const [comments, setComments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [comment, setComment] = useState('');
+    const [replyTo, setReplyTo] = useState(null);
+    const [likingId, setLikingId] = useState(null);
     const commentRef = useRef(null);
 
     // Prevent body scroll when modal is open
@@ -36,11 +41,9 @@ export default function CommentModal({ task, onClose, onChanged, position }) {
         }
     }
 
-    useEffect(() => {
+    const refreshComments = () => {
         if (!task?.id) return;
-
-        // Fetch comments from API
-        fetch(route('task-comments.index', task.id))
+        fetch(route('task-comments.index', task.id), { credentials: 'same-origin' })
             .then(res => res.json())
             .then(data => {
                 setComments(data.comments || []);
@@ -50,6 +53,13 @@ export default function CommentModal({ task, onClose, onChanged, position }) {
                 console.error('Error fetching comments:', err);
                 setLoading(false);
             });
+    };
+
+    useEffect(() => {
+        if (!task?.id) return;
+        setReplyTo(null);
+        setLoading(true);
+        refreshComments();
     }, [task?.id]);
 
     const sendComment = (e) => {
@@ -58,21 +68,14 @@ export default function CommentModal({ task, onClose, onChanged, position }) {
 
         router.post(
             route('task-comments.store', task.id),
-            { body: comment.trim() },
+            { body: comment.trim(), parent_id: replyTo?.id || null },
             {
                 preserveScroll: true,
                 preserveState: true,
                 onSuccess: () => {
                     setComment('');
-                    // Refresh comments from API
-                    fetch(route('task-comments.index', task.id))
-                        .then(res => res.json())
-                        .then(data => {
-                            setComments(data.comments || []);
-                        })
-                        .catch(err => {
-                            console.error('Error fetching comments:', err);
-                        });
+                    setReplyTo(null);
+                    refreshComments();
                     onChanged?.();
                 },
             }
@@ -86,19 +89,78 @@ export default function CommentModal({ task, onClose, onChanged, position }) {
             preserveScroll: true,
             preserveState: true,
             onSuccess: () => {
-                // Refresh comments from API
-                fetch(route('task-comments.index', task.id))
-                    .then(res => res.json())
-                    .then(data => {
-                        setComments(data.comments || []);
-                    })
-                    .catch(err => {
-                        console.error('Error fetching comments:', err);
-                    });
+                refreshComments();
                 onChanged?.();
             },
         });
     };
+
+    const toggleLike = async (commentObj) => {
+        if (!commentObj?.id || likingId) return;
+        setLikingId(commentObj.id);
+        try {
+            if (commentObj.liked_by_me) {
+                await axios.delete(route('task-comments.unlike', commentObj.id));
+            } else {
+                await axios.post(route('task-comments.like', commentObj.id));
+            }
+            refreshComments();
+        } catch (err) {
+            console.error('Error updating like:', err);
+        } finally {
+            setLikingId(null);
+        }
+    };
+
+    const renderComment = (c, isReply = false) => (
+        <div key={c.id} className={`flex gap-3 group ${isReply ? 'ml-10 mt-3' : ''}`}>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white uppercase shrink-0">
+                {c.user?.name?.charAt(0) || 'U'}
+            </div>
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="text-sm font-semibold text-white truncate">
+                            {c.user?.name || 'User'}
+                        </span>
+                        <span className="text-xs text-neutral-500 flex-shrink-0">
+                            {new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                    </div>
+                    {c.user_id === currentUserId && (
+                        <button
+                            onClick={() => deleteComment(c.id)}
+                            className="text-neutral-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                            title="Delete comment"
+                        >
+                            <X size={14} />
+                        </button>
+                    )}
+                </div>
+                <div className="text-sm text-neutral-200 leading-relaxed mb-2">{c.body}</div>
+                <div className="flex items-center gap-4">
+                    {!isReply && (
+                        <button
+                            type="button"
+                            onClick={() => setReplyTo(c)}
+                            className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+                        >
+                            <MessageCircle size={12} /> Reply
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => toggleLike(c)}
+                        disabled={likingId === c.id}
+                        className={`flex items-center gap-1 text-xs transition-colors ${c.liked_by_me ? 'text-purple-400' : 'text-neutral-500 hover:text-purple-400'}`}
+                    >
+                        <ThumbsUp size={12} /> Like {c.likes_count > 0 ? `(${c.likes_count})` : ''}
+                    </button>
+                </div>
+                {(c.replies || []).map((reply) => renderComment(reply, true))}
+            </div>
+        </div>
+    );
 
     if (!task) return null;
 
@@ -151,48 +213,25 @@ export default function CommentModal({ task, onClose, onChanged, position }) {
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {comments.map((c) => (
-                                <div key={c.id} className="flex gap-3 group">
-                                    {/* User avatar */}
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white uppercase shrink-0">
-                                        {c.user?.name?.charAt(0) || 'U'}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                <span className="text-sm font-semibold text-white truncate">
-                                                    {c.user?.name || 'User'}
-                                                </span>
-                                                <span className="text-xs text-neutral-500 flex-shrink-0">
-                                                    {new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            </div>
-                                            <button
-                                                onClick={() => deleteComment(c.id)}
-                                                className="text-neutral-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                                                title="Delete comment"
-                                            >
-                                                <X size={14} />
-                                            </button>
-                                        </div>
-                                        <div className="text-sm text-neutral-200 leading-relaxed mb-2">{c.body}</div>
-                                        <div className="flex items-center gap-4">
-                                            <button className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-300 transition-colors">
-                                                <MessageCircle size={12} /> Reply
-                                            </button>
-                                            <button className="flex items-center gap-1 text-xs text-neutral-500 hover:text-purple-400 transition-colors">
-                                                <ThumbsUp size={12} /> Like
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                            {comments.map((c) => renderComment(c))}
                         </div>
                     )}
                 </div>
 
                 {/* Comment input */}
                 <div className="px-6 py-4 border-t border-neutral-800 bg-neutral-900">
+                    {replyTo && (
+                        <div className="mb-3 flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-800/80 px-3 py-2 text-xs text-neutral-300">
+                            <span>Replying to {replyTo.user?.name || 'comment'}</span>
+                            <button
+                                type="button"
+                                onClick={() => setReplyTo(null)}
+                                className="text-neutral-500 hover:text-white"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    )}
                     <form onSubmit={sendComment} className="space-y-3">
                         <div className="flex items-start gap-3">
                             {/* User avatar */}

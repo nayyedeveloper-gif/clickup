@@ -12,6 +12,7 @@ use App\Models\MessageMention;
 use App\Models\MessageReaction;
 use App\Models\User;
 use App\Services\ChatInboxNotifier;
+use App\Support\SafeBroadcast;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -75,6 +77,8 @@ class MessageController extends Controller
 
     public function store(Request $request)
     {
+        $maxKb = (int) config('chat.max_attachment_kb', 102400);
+
         $data = $request->validate([
             'channel_id' => 'nullable|exists:channels,id',
             'receiver_id' => 'nullable|exists:users,id',
@@ -86,7 +90,7 @@ class MessageController extends Controller
             'mentions' => 'nullable|array',
             'mentions.*' => 'integer|exists:users,id',
             'attachments' => 'nullable|array|max:10',
-            'attachments.*' => 'file|max:102400', // 100 MB each
+            'attachments.*' => ['file', 'max:'.$maxKb],
         ]);
 
         if (empty($data['channel_id']) && empty($data['receiver_id'])) {
@@ -117,10 +121,22 @@ class MessageController extends Controller
                 'is_read' => false,
             ]);
 
-            // Attachments
+            // Attachments (disk "public" may be local or S3 via FILESYSTEM_PUBLIC_DRIVER)
             if ($request->hasFile('attachments')) {
                 foreach ($request->file('attachments') as $file) {
-                    $path = $file->store("messages/{$message->id}", 'public');
+                    if (! $file || ! $file->isValid()) {
+                        throw ValidationException::withMessages([
+                            'attachments' => ['One or more uploads were invalid or exceeded the server upload limit (check PHP upload_max_filesize / post_max_size).'],
+                        ]);
+                    }
+                    try {
+                        $path = $file->store("messages/{$message->id}", 'public');
+                    } catch (\Throwable $e) {
+                        report($e);
+                        throw ValidationException::withMessages([
+                            'attachments' => ['Could not store attachment. Check storage (S3 keys / disk) and server size limits.'],
+                        ]);
+                    }
                     [$w, $h] = $this->imageDimensions($file);
                     MessageAttachment::create([
                         'message_id' => $message->id,
@@ -281,9 +297,9 @@ class MessageController extends Controller
         ];
         $message->delete();
 
-        broadcast(new MessageDeleted(
+        SafeBroadcast::run(fn () => broadcast(new MessageDeleted(
             $payload['id'], $payload['channel_id'], $payload['sender_id'], $payload['receiver_id']
-        ))->toOthers();
+        ))->toOthers());
 
         if (request()->wantsJson()) {
             return response()->json(['ok' => true]);
@@ -304,7 +320,7 @@ class MessageController extends Controller
             'emoji' => $data['emoji'],
         ]);
 
-        broadcast(new MessageReactionUpdated($message->fresh()));
+        SafeBroadcast::run(fn () => broadcast(new MessageReactionUpdated($message->fresh())));
 
         return back();
     }
@@ -321,7 +337,7 @@ class MessageController extends Controller
             'emoji' => $data['emoji'],
         ])->delete();
 
-        broadcast(new MessageReactionUpdated($message->fresh()));
+        SafeBroadcast::run(fn () => broadcast(new MessageReactionUpdated($message->fresh())));
 
         return back();
     }
@@ -360,7 +376,7 @@ class MessageController extends Controller
                 'size_bytes' => $a->size_bytes,
                 'width' => $a->width,
                 'height' => $a->height,
-                'is_image' => str_starts_with((string) $a->mime_type, 'image/'),
+                'is_image' => $a->is_image,
                 'is_video' => str_starts_with((string) $a->mime_type, 'video/'),
                 'is_audio' => str_starts_with((string) $a->mime_type, 'audio/'),
                 'created_at' => $a->message?->created_at?->toIso8601String(),
@@ -415,8 +431,15 @@ class MessageController extends Controller
     private function imageDimensions($file): array
     {
         try {
+            if ($file->getSize() > 25 * 1024 * 1024) {
+                return [null, null];
+            }
             if (str_starts_with((string) $file->getMimeType(), 'image/')) {
-                $info = @getimagesize($file->getRealPath());
+                $realPath = $file->getRealPath();
+                if (! $realPath || ! is_readable($realPath)) {
+                    return [null, null];
+                }
+                $info = @getimagesize($realPath);
                 if (is_array($info)) {
                     return [$info[0] ?? null, $info[1] ?? null];
                 }
@@ -490,11 +513,7 @@ class MessageController extends Controller
     private function dispatchMessageRealtimeAndInbox(Message $message): void
     {
         // Realtime thread updates must be immediate. Don't fail message send if broadcaster is down.
-        try {
-            broadcast(new MessageSent($message));
-        } catch (\Throwable $e) {
-            \Log::warning('Broadcast failed (Reverb may be down): '.$e->getMessage());
-        }
+        SafeBroadcast::run(fn () => broadcast(new MessageSent($message)));
 
         // Sidebar badge/toast updates can be deferred safely.
         dispatch(function () use ($message) {

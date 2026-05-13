@@ -26,6 +26,8 @@
        so an <input> can sit cleanly inside a styled wrapper. */
     .bare-input {
         @apply flex-1 bg-transparent border-0 p-0 text-sm text-white outline-none shadow-none;
+        -webkit-appearance: none;
+        appearance: none;
     }
     .bare-input::placeholder {
         @apply text-neutral-600;

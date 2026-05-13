@@ -6,7 +6,7 @@ const BODY_CLASS = 'has-mobile-bottom-nav';
 
 function canSeeChat(auth) {
     if (!auth?.user) return false;
-    if (auth.user.role_id === 1) return true;
+    if (auth.user.is_platform_admin) return true;
     return auth.user.permissions?.includes('chat.view');
 }
 

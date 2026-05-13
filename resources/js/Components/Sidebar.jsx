@@ -366,8 +366,8 @@ export default function Sidebar() {
             .filter(item => {
                 // If no permission required, show item
                 if (!item.permission) return true;
-                // If user has admin role (role_id === 1), show all items
-                if (auth?.user?.role_id === 1) return true;
+                // Platform admins (super-admin / admin) see every rail item that their install maps to permissions for.
+                if (auth?.user?.is_platform_admin) return true;
                 // Check if user has the required permission
                 return auth?.user?.permissions?.includes(item.permission);
             })
@@ -505,7 +505,7 @@ export default function Sidebar() {
                     })}
                 </div>
                 <div className="flex flex-col items-center gap-2 pb-4">
-                    {(auth?.user?.permissions?.includes('invite.users') || auth?.user?.role_id === 1) && (
+                    {(auth?.user?.permissions?.includes('invite.users') || auth?.user?.is_platform_admin) && (
                         <Link
                             href={route('invite.index')}
                             className={`w-10 h-10 flex flex-col items-center justify-center rounded-md text-[10px] gap-0.5 ${
@@ -880,7 +880,7 @@ function ProfileMenu({ user, initial }) {
                             <Settings size={16} className="text-neutral-500" />
                             <span>Profile Settings</span>
                         </Link>
-                        {(user?.role === 'admin' || user?.role === 'owner' || user?.role_id === 1) && (
+                        {(user?.permissions?.includes('users.manage')) && (
                             <Link
                                 href={route('users.index')}
                                 onClick={() => setOpen(false)}

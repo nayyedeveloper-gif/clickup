@@ -57,7 +57,14 @@ class MessageAttachmentController extends Controller
 
         $driver = (string) (config("filesystems.disks.{$diskName}.driver") ?? '');
 
-        if ($driver === 's3' && $disk->providesTemporaryUrls()) {
+        if ($driver === 's3') {
+            if (! $disk->providesTemporaryUrls()) {
+                Log::error('[MessageAttachment] S3 disk without temporary URL support', [
+                    'attachment_id' => $messageAttachment->id,
+                    'disk' => $diskName,
+                ]);
+                abort(502, 'Could not generate a download link for this attachment.');
+            }
             try {
                 $disposition = $forceDownload ? 'attachment' : 'inline';
                 $cd = $disposition.'; filename="'.$safeName.'"';
@@ -77,7 +84,7 @@ class MessageAttachmentController extends Controller
                     'attachment_id' => $messageAttachment->id,
                     'message' => $e->getMessage(),
                 ]);
-                /* fall through to streamed response */
+                abort(502, 'Could not generate a download link for this attachment.');
             }
         }
 

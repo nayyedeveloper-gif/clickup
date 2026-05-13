@@ -2,26 +2,27 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
-use App\Models\Role;
 use App\Models\Permission;
+use App\Models\Role;
+use App\Models\Space;
+use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Illuminate\Http\RedirectResponse;
 
 class UsersController extends Controller
 {
     public function index(Request $request): Response
     {
-        $users = User::with(['roleModel', 'spaces:id,name'])
+        $users = User::with(['roleModel:id,name,slug', 'spaces:id,name'])
             ->select('id', 'name', 'email', 'role', 'role_id', 'email_verified_at')
             ->orderBy('name')
             ->get();
 
         $roles = Role::with('permissions')->get();
         $permissions = Permission::orderBy('module')->orderBy('name')->get();
-        $allSpaces = \App\Models\Space::orderBy('name')->get(['id', 'name']);
+        $allSpaces = Space::orderBy('name')->get(['id', 'name']);
 
         return Inertia::render('Users/Index', [
             'users' => $users,
@@ -50,17 +51,15 @@ class UsersController extends Controller
         ]);
 
         $user->role_id = $validated['role_id'];
-        
-        // Also sync the legacy enum role for compatibility
+
         $role = Role::find($validated['role_id']);
-        if ($role->slug === 'admin') {
-            $user->role = 'admin';
-        } elseif ($role->slug === 'manager') {
-            $user->role = 'manager';
-        } else {
-            $user->role = 'member';
-        }
-        
+        $slug = $role?->slug ?? 'user';
+        $user->role = match ($slug) {
+            'super-admin', 'admin' => 'admin',
+            'manager' => 'manager',
+            default => 'member',
+        };
+
         $user->save();
 
         return back()->with('success', 'User role updated successfully.');
@@ -68,6 +67,10 @@ class UsersController extends Controller
 
     public function updateRolePermissions(Request $request): RedirectResponse
     {
+        if (! $request->user()->isSuperAdmin()) {
+            return back()->with('error', 'Only a super administrator can edit the role permission matrix.');
+        }
+
         $validated = $request->validate([
             'role_id' => 'required|exists:roles,id',
             'permission_ids' => 'array',

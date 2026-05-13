@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import {
     ArrowLeft,
@@ -22,6 +22,7 @@ import Composer from '@/Components/Chat/Composer';
 import MessageGroup from '@/Components/Chat/MessageGroup';
 import DaySeparator from '@/Components/Chat/DaySeparator';
 import { appendMessageIfNew, buildMessageGroups, messageIdEquals } from '@/Components/Chat/helpers';
+import { useChatFileDropZone } from '@/Components/Chat/useChatFileDropZone';
 
 /* ----------------------- Members modal ----------------------- */
 
@@ -283,6 +284,14 @@ export default function ChannelShow({ channel, canDelete, canEdit }) {
     const [replyTo, setReplyTo] = useState(null);
     const [messages, setMessages] = useState(channel.messages || []);
     const scrollRef = useRef(null);
+    const composerRef = useRef(null);
+
+    const forwardFilesToComposer = useCallback((files) => {
+        composerRef.current?.addFiles(files);
+    }, []);
+
+    const { active: fileDragActive, onDragEnter, onDragLeave, onDragOverCapture, onDropCapture } =
+        useChatFileDropZone(forwardFilesToComposer);
 
     // Real-time listeners
     useEffect(() => {
@@ -424,7 +433,22 @@ export default function ChannelShow({ channel, canDelete, canEdit }) {
                         Back to channels
                     </Link>
                 </div>
-                <div className="flex flex-col h-[calc(100vh-6.5rem)] md:h-[calc(100vh-5.25rem)]">
+                <div
+                    className={`flex flex-col h-[calc(100vh-6.5rem)] md:h-[calc(100vh-5.25rem)] relative ${
+                        fileDragActive ? 'ring-2 ring-inset ring-purple-500/50 rounded-lg' : ''
+                    }`}
+                    onDragEnter={onDragEnter}
+                    onDragLeave={onDragLeave}
+                    onDragOverCapture={onDragOverCapture}
+                    onDropCapture={onDropCapture}
+                >
+                    {fileDragActive && (
+                        <div className="pointer-events-none absolute inset-x-0 bottom-20 z-10 flex justify-center px-4">
+                            <div className="rounded-lg border border-purple-500/60 bg-neutral-900/95 px-4 py-2 text-sm text-white shadow-lg">
+                                Release to attach files
+                            </div>
+                        </div>
+                    )}
                     {/* Messages */}
                     <div ref={scrollRef} className="flex-1 overflow-y-auto">
                         {groupedItems.length === 0 ? (
@@ -451,6 +475,7 @@ export default function ChannelShow({ channel, canDelete, canEdit }) {
 
                     {/* Composer */}
                     <Composer
+                        ref={composerRef}
                         channelId={channel.id}
                         replyTo={replyTo}
                         onCancelReply={() => setReplyTo(null)}

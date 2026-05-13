@@ -1,5 +1,5 @@
 import { router, useForm, usePage, Head } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Sidebar from '@/Components/Sidebar';
 import { Search, Shield, UserCheck, UserX, ChevronDown, Check, ChevronUp, Users, Key, Settings, Trash2 } from 'lucide-react';
 
@@ -11,6 +11,14 @@ export default function UsersIndex({ users, roles, permissions, allSpaces, auth 
     const [showRoleMenu, setShowRoleMenu] = useState(null);
     const [showSpaceMenu, setShowSpaceMenu] = useState(null);
     const [expandedModules, setExpandedModules] = useState({});
+
+    const canConfigureRolePermissions = auth?.user?.permissions?.includes('users.permissions');
+
+    useEffect(() => {
+        if (!canConfigureRolePermissions && activeTab === 'permissions') {
+            setActiveTab('users');
+        }
+    }, [canConfigureRolePermissions, activeTab]);
 
     // Role Permission Form
     const roleForm = useForm({
@@ -25,9 +33,8 @@ export default function UsersIndex({ users, roles, permissions, allSpaces, auth 
     const filteredUsers = users.filter((user) => {
         const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             user.email.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesRole = filterRole === 'all' || 
-            (filterRole === 'admin' && user.role_id === 1) ||
-            (filterRole === 'member' && user.role_id === 2);
+        const slug = user.role_slug || user.role_model?.slug || roles.find((r) => r.id === user.role_id)?.slug || '';
+        const matchesRole = filterRole === 'all' || slug === filterRole;
         return matchesSearch && matchesRole;
     });
 
@@ -123,6 +130,7 @@ export default function UsersIndex({ users, roles, permissions, allSpaces, auth 
                         {/* Tabs */}
                         <div className="flex gap-1 bg-neutral-900 p-1 rounded-lg border border-neutral-800 w-fit">
                             <button
+                                type="button"
                                 onClick={() => setActiveTab('users')}
                                 className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-2 ${
                                     activeTab === 'users'
@@ -133,7 +141,9 @@ export default function UsersIndex({ users, roles, permissions, allSpaces, auth 
                                 <Users size={14} />
                                 Users
                             </button>
+                            {canConfigureRolePermissions && (
                             <button
+                                type="button"
                                 onClick={() => setActiveTab('permissions')}
                                 className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-2 ${
                                     activeTab === 'permissions'
@@ -144,6 +154,7 @@ export default function UsersIndex({ users, roles, permissions, allSpaces, auth 
                                 <Shield size={14} />
                                 Roles & Permissions
                             </button>
+                            )}
                         </div>
 
                         {activeTab === 'users' && (
@@ -167,9 +178,10 @@ export default function UsersIndex({ users, roles, permissions, allSpaces, auth 
                                             className="bg-neutral-950 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:bg-neutral-900 min-w-[140px]"
                                         >
                                             <option value="all">All Roles</option>
+                                            <option value="super-admin">Super Admin</option>
                                             <option value="admin">Admin</option>
                                             <option value="manager">Manager</option>
-                                            <option value="member">Member</option>
+                                            <option value="user">User</option>
                                         </select>
                                     </div>
                                 </div>
@@ -323,7 +335,7 @@ export default function UsersIndex({ users, roles, permissions, allSpaces, auth 
                             </div>
                         )}
 
-                        {activeTab === 'permissions' && (
+                        {activeTab === 'permissions' && canConfigureRolePermissions && (
                             <div className="space-y-6">
                                 {/* Role Selection */}
                                 <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">

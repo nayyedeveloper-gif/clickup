@@ -56,19 +56,19 @@ export default function ChannelIndex({ channels }) {
                     </>
                 }
                 mobileBelowAppBar={
-                    <div className="flex items-center gap-2 px-1 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800">
-                        <Search size={14} className="text-neutral-500 shrink-0" />
+                    <div className="flex min-h-[2.75rem] items-center gap-2.5 rounded-2xl border border-neutral-800/90 bg-neutral-900/80 px-3 py-2">
+                        <Search size={16} className="shrink-0 text-neutral-500" strokeWidth={2} />
                         <input
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder="Search channels…"
-                            className="bare-input flex-1 min-w-0 text-sm"
+                            className="bare-input min-w-0 flex-1 text-[15px] placeholder:text-neutral-600"
                             aria-label="Search channels"
                         />
                     </div>
                 }
             >
-                <div className="p-3 sm:p-4 lg:p-6">
+                <div className="px-3 pb-4 pt-2 sm:p-4 lg:p-6">
                     {filtered.length === 0 ? (
                         <div className="text-center py-16">
                             <Hash className="mx-auto text-neutral-700" size={48} />
@@ -88,12 +88,12 @@ export default function ChannelIndex({ channels }) {
                             )}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="flex flex-col gap-2.5 md:grid md:grid-cols-2 md:gap-4 lg:grid-cols-3">
                             {filtered.map((c) => (
                                 <Link
                                     key={c.id}
                                     href={route('channels.show', c.id)}
-                                    className="group rounded-lg border border-neutral-800 bg-neutral-900/40 hover:border-neutral-700 hover:bg-neutral-900 transition p-4 relative"
+                                    className="group relative rounded-2xl border border-neutral-800/90 bg-neutral-900/70 p-4 shadow-sm transition active:scale-[0.99] active:bg-neutral-900 md:rounded-lg md:active:scale-100 hover:border-neutral-700 hover:bg-neutral-900"
                                 >
                                     <div className="flex items-start gap-3">
                                         <div className={`shrink-0 w-9 h-9 rounded-md flex items-center justify-center ${c.is_private ? 'bg-amber-500/15 text-amber-400' : 'bg-purple-500/15 text-purple-400'}`}>
@@ -125,10 +125,11 @@ export default function ChannelIndex({ channels }) {
                                     </div>
                                     <button
                                         onClick={(e) => onDelete(e, c)}
-                                        className="opacity-0 group-hover:opacity-100 absolute top-3 right-3 text-neutral-500 hover:text-red-400 transition"
+                                        className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full text-neutral-500 opacity-100 transition hover:bg-neutral-800/80 hover:text-red-400 md:right-3 md:top-3 md:h-8 md:w-8 md:opacity-0 md:group-hover:opacity-100"
                                         title="Delete"
+                                        type="button"
                                     >
-                                        <Trash2 size={13} />
+                                        <Trash2 size={15} className="md:h-[13px] md:w-[13px]" />
                                     </button>
                                 </Link>
                             ))}

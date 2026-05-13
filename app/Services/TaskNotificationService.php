@@ -7,6 +7,7 @@ use App\Mail\TaskNotificationMail;
 use App\Models\Task;
 use App\Models\User;
 use App\Notifications\TaskAssignedNotification;
+use App\Support\SafeBroadcast;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -56,7 +57,7 @@ class TaskNotificationService
             'recipients' => $recipientIds,
         ]);
 
-        broadcast(new TaskInboxNudge($recipientIds, [
+        SafeBroadcast::run(fn () => broadcast(new TaskInboxNudge($recipientIds, [
             'task_id' => (int) $task->id,
             'list_id' => (int) ($task->task_list_id ?? 0),
             'title' => $title,
@@ -65,7 +66,7 @@ class TaskNotificationService
             'new_assignee_id' => $newId,
             'message' => $message,
             'url' => url('/lists/'.($task->task_list_id ?? '')),
-        ]));
+        ])));
     }
 
     public function notifyTaskCreated(Task $task): void
@@ -112,14 +113,14 @@ class TaskNotificationService
 
         if ($recipientIds !== []) {
             $actorName = auth()->user()?->name ?? 'Someone';
-            broadcast(new TaskInboxNudge($recipientIds, [
+            SafeBroadcast::run(fn () => broadcast(new TaskInboxNudge($recipientIds, [
                 'task_id' => (int) $task->id,
                 'list_id' => (int) ($task->task_list_id ?? 0),
                 'title' => (string) ($task->title ?? 'Task'),
                 'action' => 'commented',
                 'message' => "{$actorName} commented on this task.",
                 'url' => url('/tasks/'.$task->id),
-            ]));
+            ])));
         }
     }
 

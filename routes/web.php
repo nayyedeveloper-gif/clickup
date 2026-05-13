@@ -123,6 +123,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/tasks/{task}/comments', [TaskCommentController::class, 'index'])->name('task-comments.index');
     Route::post('/tasks/{task}/comments', [TaskCommentController::class, 'store'])->name('task-comments.store');
     Route::delete('/task-comments/{comment}', [TaskCommentController::class, 'destroy'])->name('task-comments.destroy');
+    Route::post('/task-comments/{comment}/like', [TaskCommentController::class, 'like'])->name('task-comments.like');
+    Route::delete('/task-comments/{comment}/like', [TaskCommentController::class, 'unlike'])->name('task-comments.unlike');
 
     // Time tracking
     Route::post('/tasks/{task}/time/start', [TimeEntryController::class, 'start'])->name('time.start');
