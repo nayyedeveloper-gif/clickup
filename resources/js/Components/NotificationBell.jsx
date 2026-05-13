@@ -244,7 +244,7 @@ export default function NotificationBell() {
                         className="fixed z-[600] bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl overflow-hidden flex flex-col"
                         style={{
                             top: panelPos.top,
-                            left: panelPos.left - 320,
+                            left: panelPos.left - 280,
                             width: panelPos.width,
                             maxHeight: `min(calc(100vh - ${panelPos.top + 8}px), 560px)`,
                         }}
